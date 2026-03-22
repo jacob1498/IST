@@ -159,11 +159,15 @@
                 playErrorSound();
                 showToast("Duplicate transaction detected!", "error");
                 input.value = '';
+                input.focus();
                 return;
             }
             playSuccessSound();
+            // Prevent table render from stealing focus back to a row
+            focusedTransactionId = null;
             addTransaction(value);
             input.value = ''; // Clear input for next scan
+            input.focus();
         }
     }
 
@@ -179,6 +183,15 @@
     input.addEventListener('input', function() {
         clearTimeout(scanTimeout);
         scanTimeout = setTimeout(processScan, 200); // 200ms delay to wait for scanner to finish
+    });
+
+    // Ensure scanning works even if focus is on the table or body
+    document.addEventListener('keydown', function(e) {
+        const tag = document.activeElement.tagName;
+        // If user types a character and focus is NOT in an input/button/select
+        if (e.key.length === 1 && !e.ctrlKey && !e.altKey && !e.metaKey && tag !== 'INPUT' && tag !== 'TEXTAREA' && tag !== 'SELECT') {
+            input.focus();
+        }
     });
 
     function addTransaction(number) {
@@ -483,6 +496,7 @@
     function closeModal() {
         document.getElementById('plateModal').style.display = 'none';
         editIndex = null;
+        input.focus();
     }
 
     function openMasterModal() {
@@ -493,6 +507,7 @@
 
     function closeMasterModal() {
         document.getElementById('masterModal').style.display = 'none';
+        input.focus();
     }
 
     function renderMasterList() {
@@ -577,6 +592,7 @@
     function closeTimeModal() {
         document.getElementById('timeModal').style.display = 'none';
         editIndex = null;
+        input.focus();
     }
 
     function saveTime() {
