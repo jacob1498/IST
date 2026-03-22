@@ -84,9 +84,10 @@
     <div class="input-group">
         <input type="text" id="scanInput" placeholder="Scan transaction number here..." autofocus>
         <input type="text" id="searchInput" placeholder="Search transactions..." onkeyup="handleSearch(this.value)">
+        <input type="text" id="loadIdFilterInput" placeholder="Filter by Load ID..." onkeyup="handleLoadIdFilter(this.value)">
         <span style="align-self: center;">From:</span> <input type="date" id="dateFrom" onchange="handleDateFilter()" style="flex-grow: 0; width: auto;">
         <span style="align-self: center;">To:</span> <input type="date" id="dateTo" onchange="handleDateFilter()" style="flex-grow: 0; width: auto;">
-        <button onclick="clearDateFilter()" title="Clear Date Filter">Clear Dates</button>
+        <button onclick="clearAllFilters()" title="Clear All Filters">Clear Filters</button>
         <button onclick="openModal()">Select Truck</button>
         <button onclick="openMasterModal()">Manage Trucks</button>
         <button id="bulkLoadBtn" class="bulk-btn" style="margin-left: auto;" onclick="executeBulkLoad()">Load Selected</button>
@@ -178,6 +179,7 @@
     let filterDateFrom = "";
     let filterDateTo = "";
     let filterStatus = "all";
+    let filterLoadId = "";
     let selectedTransactions = new Set();
     let currentPage = 1;
     let currentPlate = localStorage.getItem('currentPlate') || "N/A";
@@ -259,11 +261,24 @@
         renderTable();
     }
 
-    function clearDateFilter() {
+    function handleLoadIdFilter(val) {
+        filterLoadId = val.toLowerCase();
+        currentPage = 1;
+        renderTable();
+    }
+
+    function clearAllFilters() {
         document.getElementById('dateFrom').value = '';
         document.getElementById('dateTo').value = '';
         filterDateFrom = "";
         filterDateTo = "";
+
+        document.getElementById('searchInput').value = '';
+        searchTerm = "";
+
+        document.getElementById('loadIdFilterInput').value = '';
+        filterLoadId = "";
+
         currentPage = 1;
         renderTable();
     }
@@ -289,6 +304,7 @@
     function getFilteredData() {
         return scannedData.filter(item => {
             const matchesSearch = item["Transaction Number"].toLowerCase().includes(searchTerm);
+            const matchesLoadId = (item["Load ID"] || "").toLowerCase().includes(filterLoadId);
             let matchesDate = true;
             if (filterDateFrom || filterDateTo) {
                 const d = new Date(item["Timestamp"]);
@@ -305,7 +321,7 @@
             if (filterStatus === 'loaded') matchesStatus = !!item["Loaded Time"];
             else if (filterStatus === 'unloaded') matchesStatus = !item["Loaded Time"];
 
-            return matchesSearch && matchesDate && matchesStatus;
+            return matchesSearch && matchesDate && matchesStatus && matchesLoadId;
         });
     }
 
