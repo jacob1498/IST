@@ -587,6 +587,13 @@
         doc.text("Loaded Details Manifest", 14, yPos);
         doc.setFontSize(10);
         doc.text(`Generated: ${new Date().toLocaleString()}`, 195, yPos, { align: 'right' });
+        yPos += 10;
+
+        doc.text(`Total Items: ${dataToPrint.length}`, 14, yPos);
+        if (filterDateFrom || filterDateTo) {
+            yPos += 5;
+            doc.text(`Date Range: ${filterDateFrom || '...'} to ${filterDateTo || '...'}`, 14, yPos);
+        }
         yPos += 15;
 
         Object.keys(groups).forEach(key => {
@@ -596,7 +603,7 @@
             }
             doc.setFontSize(12);
             doc.setFont(undefined, 'bold');
-            doc.text(key, 14, yPos);
+            doc.text(`${key} (${groups[key].length} items)`, 14, yPos);
             doc.setFont(undefined, 'normal');
             yPos += 3;
             
@@ -608,8 +615,31 @@
                 headStyles: { fillColor: [60, 60, 60] },
                 margin: { left: 14, right: 14 }
             });
-            yPos = doc.lastAutoTable.finalY + 10;
+            yPos = doc.lastAutoTable.finalY + 35;
+
+            // Check for page break for signatures
+            if (yPos > 270) {
+                doc.addPage();
+                yPos = 40;
+            }
+
+            doc.setFontSize(10);
+            doc.line(14, yPos - 15, 80, yPos - 15); // Signature line 1
+            doc.text("Trucker Signature", 14, yPos - 10);
+            
+            doc.line(120, yPos - 15, 186, yPos - 15); // Signature line 2
+            doc.text("Prepared By", 120, yPos - 10);
+            
+            yPos += 15;
         });
+
+        // Add Page Numbers
+        const pageCount = doc.internal.getNumberOfPages();
+        for(let i = 1; i <= pageCount; i++) {
+            doc.setPage(i);
+            doc.setFontSize(8);
+            doc.text('Page ' + i + ' of ' + pageCount, 105, 290, { align: 'center' });
+        }
 
         doc.save("Loaded_Manifest.pdf");
     }
