@@ -101,6 +101,7 @@
                 <th>Transaction Number</th>
                 <th>Timestamp</th>
                 <th>Plate Number</th>
+                <th>Trucker Name</th>
                 <th>Loaded Time</th>
                 <th>Action</th>
             </tr>
@@ -146,10 +147,11 @@
 
 <!-- Modal for Master List Management -->
 <div id="masterModal" class="modal">
-    <div class="modal-content" style="width: 400px;">
+    <div class="modal-content" style="width: 500px;">
         <h3>Manage Truck Plates</h3>
         <div style="display: flex; gap: 5px; margin-bottom: 15px;">
-            <input type="text" id="newPlateInput" placeholder="New Plate Number" style="text-transform: uppercase;">
+            <input type="text" id="newPlateInput" placeholder="Plate Number" style="text-transform: uppercase; flex: 1;">
+            <input type="text" id="newTruckerInput" placeholder="Trucker Name" style="flex: 1;">
             <button onclick="addMasterPlate()" style="padding: 10px;">Add</button>
         </div>
         <ul id="masterList" style="list-style: none; padding: 0; max-height: 300px; overflow-y: auto; text-align: left;">
@@ -162,6 +164,11 @@
 <script>
     let scannedData = JSON.parse(localStorage.getItem('scannedTransactions')) || [];
     let masterPlates = JSON.parse(localStorage.getItem('masterPlates')) || [];
+    // Migration for old string-only masterPlates
+    if (masterPlates.length > 0 && typeof masterPlates[0] === 'string') {
+        masterPlates = masterPlates.map(p => ({ plate: p, name: '' }));
+        localStorage.setItem('masterPlates', JSON.stringify(masterPlates));
+    }
     let searchTerm = "";
     let filterDateFrom = "";
     let filterDateTo = "";
@@ -169,6 +176,7 @@
     let selectedTransactions = new Set();
     let currentPage = 1;
     let currentPlate = localStorage.getItem('currentPlate') || "N/A";
+    let currentTruckerName = localStorage.getItem('currentTruckerName') || "";
     let focusedTransactionId = null;
     let editIndex = null;
     const rowsPerPage = 10;
@@ -223,7 +231,7 @@
         const now = new Date();
         const timestamp = now.toLocaleString();
 
-        const dataItem = { "Transaction Number": number, "Timestamp": timestamp, "Plate Number": currentPlate, "Loaded Time": "" };
+        const dataItem = { "Transaction Number": number, "Timestamp": timestamp, "Plate Number": currentPlate, "Trucker Name": currentTruckerName, "Loaded Time": "" };
 
         // Add to data array for export
         scannedData.unshift(dataItem);
@@ -339,6 +347,7 @@
             const cell3 = row.insertCell(3);
             const cell4 = row.insertCell(4);
             const cell5 = row.insertCell(5);
+            const cell6 = row.insertCell(6);
 
             const checkbox = document.createElement('input');
             checkbox.type = 'checkbox';
@@ -349,7 +358,8 @@
             cell1.textContent = item["Transaction Number"];
             cell2.textContent = item["Timestamp"];
             cell3.textContent = item["Plate Number"];
-            cell4.textContent = item["Loaded Time"] || "-";
+            cell4.textContent = item["Trucker Name"] || "-";
+            cell5.textContent = item["Loaded Time"] || "-";
 
             // Load Button (only if not loaded)
             if (!item["Loaded Time"]) {
@@ -359,11 +369,14 @@
                 loadBtn.className = 'icon-btn';
                 loadBtn.onclick = function() {
                     item["Loaded Time"] = new Date().toLocaleString();
-                    if (currentPlate !== "N/A") item["Plate Number"] = currentPlate;
+                    if (currentPlate !== "N/A") {
+                        item["Plate Number"] = currentPlate;
+                        item["Trucker Name"] = currentTruckerName;
+                    }
                     saveData();
                     renderTable();
                 };
-                cell5.appendChild(loadBtn);
+                cell6.appendChild(loadBtn);
             }
 
             const editBtn = document.createElement('button');
@@ -397,9 +410,9 @@
                 renderTable();
                 saveData();
             };
-            cell5.appendChild(editBtn);
-            cell5.appendChild(timeBtn);
-            cell5.appendChild(deleteBtn);
+            cell6.appendChild(editBtn);
+            cell6.appendChild(timeBtn);
+            cell6.appendChild(deleteBtn);
         });
         updateBulkButton();
         updatePagination(filteredData.length); // This should use filtered length
@@ -443,7 +456,10 @@
         scannedData.forEach(item => {
             if (selectedTransactions.has(item["Transaction Number"]) && !item["Loaded Time"]) {
                 item["Loaded Time"] = now;
-                if (currentPlate !== "N/A") item["Plate Number"] = currentPlate;
+                if (currentPlate !== "N/A") {
+                    item["Plate Number"] = currentPlate;
+                    item["Trucker Name"] = currentTruckerName;
+                }
                 updatedCount++;
             }
         });
@@ -607,12 +623,12 @@
     function renderMasterList() {
         const list = document.getElementById('masterList');
         list.innerHTML = '';
-        masterPlates.forEach((plate, index) => {
+        masterPlates.forEach((item, index) => {
             const li = document.createElement('li');
             li.style.cssText = "display: flex; justify-content: space-between; padding: 8px; border-bottom: 1px solid #eee; align-items: center;";
             
             const span = document.createElement('span');
-            span.textContent = plate;
+            span.textContent = item.plate + (item.name ? ` (${item.name})` : '');
             
             const btn = document.createElement('button');
             btn.textContent = '×';
@@ -627,15 +643,18 @@
 
     function addMasterPlate() {
         const input = document.getElementById('newPlateInput');
+        const nameInput = document.getElementById('newTruckerInput');
         const val = input.value.trim().toUpperCase();
-        if(val && !masterPlates.includes(val)) {
-            masterPlates.push(val);
-            masterPlates.sort();
+        const nameVal = nameInput.value.trim();
+        if(val && !masterPlates.some(p => p.plate === val)) {
+            masterPlates.push({ plate: val, name: nameVal });
+            masterPlates.sort((a, b) => a.plate.localeCompare(b.plate));
             localStorage.setItem('masterPlates', JSON.stringify(masterPlates));
             updatePlateDatalist();
             renderMasterList();
             input.value = '';
-        } else if (masterPlates.includes(val)) {
+            nameInput.value = '';
+        } else if (masterPlates.some(p => p.plate === val)) {
             showToast('Plate already exists', "error");
         }
     }
@@ -652,26 +671,37 @@
     function updatePlateDatalist() {
         const dataList = document.getElementById('plateList');
         dataList.innerHTML = '';
-        masterPlates.forEach(plate => {
+        masterPlates.forEach(item => {
             const option = document.createElement('option');
-            option.value = plate;
+            option.value = item.plate;
             dataList.appendChild(option);
         });
     }
 
+    function updateTruckDisplay() {
+        const text = currentPlate === "N/A" ? "N/A" : `${currentPlate} ${currentTruckerName ? '(' + currentTruckerName + ')' : ''}`;
+        document.getElementById('truckDisplay').textContent = "Current Truck: " + text;
+    }
+
     function savePlate() {
         const selectedValue = document.getElementById('plateInput').value.trim() || "N/A";
+        // Lookup name
+        const matched = masterPlates.find(m => m.plate === selectedValue);
+        const nameValue = matched ? matched.name : "";
         
         if (editIndex !== null) {
             // Update specific row
             scannedData[editIndex]["Plate Number"] = selectedValue;
+            scannedData[editIndex]["Trucker Name"] = nameValue;
             saveData();
             renderTable();
         } else {
             // Set global default
             currentPlate = selectedValue;
+            currentTruckerName = nameValue;
             localStorage.setItem('currentPlate', currentPlate);
-            document.getElementById('truckDisplay').textContent = "Current Truck: " + currentPlate;
+            localStorage.setItem('currentTruckerName', currentTruckerName);
+            updateTruckDisplay();
             document.getElementById('scanInput').focus();
         }
         closeModal();
@@ -715,7 +745,7 @@
 
     // Initialize
     updatePlateDatalist();
-    document.getElementById('truckDisplay').textContent = "Current Truck: " + currentPlate;
+    updateTruckDisplay();
     updateSummary(scannedData); // Initial summary for all data
     document.getElementById('cardTotal').classList.add('active-filter');
     renderTable();
