@@ -30,6 +30,12 @@
         .icon-btn { padding: 6px 10px; font-size: 16px; border: 1px solid transparent; cursor: pointer; margin-right: 4px; border-radius: 4px; background: transparent; color: #333; }
         .icon-btn:hover { background-color: #eee; border-color: #ddd; }
         .bulk-btn { display: none; margin-left: 5px; }
+        #toast-container { position: fixed; top: 20px; right: 20px; z-index: 2000; display: flex; flex-direction: column; gap: 10px; }
+        .toast { padding: 12px 20px; border-radius: 4px; color: white; min-width: 250px; box-shadow: 0 4px 6px rgba(0,0,0,0.1); animation: slideIn 0.3s ease-out; opacity: 1; transition: opacity 0.3s; }
+        .toast.error { background-color: #dc3545; }
+        .toast.success { background-color: #28a745; }
+        .toast.info { background-color: #333; }
+        @keyframes slideIn { from { transform: translateX(100%); opacity: 0; } to { transform: translateX(0); opacity: 1; } }
     </style>
 </head>
 <body>
@@ -37,6 +43,8 @@
 <div class="container">
     <h2>Scan Transaction</h2>
     
+    <div id="toast-container"></div>
+
     <div class="summary-cards">
         <div class="card">
             <h3>Total Scans</h3>
@@ -149,7 +157,7 @@
         if (value) {
             if (scannedData.some(item => item["Transaction Number"] === value)) {
                 playErrorSound();
-                setTimeout(() => alert("Duplicate transaction detected!"), 50);
+                showToast("Duplicate transaction detected!", "error");
                 input.value = '';
                 return;
             }
@@ -218,7 +226,18 @@
 
             row.onfocus = () => { focusedTransactionId = item["Transaction Number"]; };
             row.onkeydown = (e) => {
-                if (e.key === ' ') { e.preventDefault(); toggleSelection(item["Transaction Number"], !selectedTransactions.has(item["Transaction Number"])); }
+                if (e.key === ' ') { 
+                    e.preventDefault(); 
+                    toggleSelection(item["Transaction Number"], !selectedTransactions.has(item["Transaction Number"])); 
+                } else if (e.key === 'ArrowDown') {
+                    e.preventDefault();
+                    const next = row.nextElementSibling;
+                    if (next) next.focus();
+                } else if (e.key === 'ArrowUp') {
+                    e.preventDefault();
+                    const prev = row.previousElementSibling;
+                    if (prev) prev.focus();
+                }
             };
             
             const cellCheck = row.insertCell(0);
@@ -391,7 +410,7 @@
 
     function exportToExcel() {
         if (scannedData.length === 0) {
-            alert("No data to export!");
+            showToast("No data to export!", "error");
             return;
         }
         
@@ -508,7 +527,7 @@
             renderMasterList();
             input.value = '';
         } else if (masterPlates.includes(val)) {
-            alert('Plate already exists');
+            showToast('Plate already exists', "error");
         }
     }
 
@@ -570,6 +589,17 @@
             }
         }
         closeTimeModal();
+    }
+
+    function showToast(message, type = 'info') {
+        const container = document.getElementById('toast-container');
+        const toast = document.createElement('div');
+        toast.className = `toast ${type}`;
+        toast.textContent = message;
+        container.appendChild(toast);
+        
+        // Fade out and remove after 3 seconds
+        setTimeout(() => { toast.style.opacity = '0'; setTimeout(() => toast.remove(), 300); }, 3000);
     }
 
     // Initialize
