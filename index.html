@@ -30,6 +30,8 @@
         .edit-btn { background-color: #ffc107; color: #000; margin-right: 5px; padding: 5px 10px; font-size: 14px; border: none; cursor: pointer; }
         .edit-btn:hover { background-color: #e0a800; }
         .bulk-btn { background-color: #dc3545; display: none; margin-left: auto; }
+        .manage-btn { background-color: #17a2b8; }
+        .manage-btn:hover { background-color: #138496; }
     </style>
 </head>
 <body>
@@ -56,6 +58,7 @@
         <input type="text" id="scanInput" placeholder="Scan transaction number here..." autofocus>
         <input type="text" id="searchInput" placeholder="Search transactions..." onkeyup="handleSearch(this.value)">
         <button onclick="openModal()" style="background-color: #007bff;">Select Truck</button>
+        <button onclick="openMasterModal()" class="manage-btn">Manage Trucks</button>
         <button id="bulkDeleteBtn" class="bulk-btn" onclick="executeBulkDelete()">Delete Selected</button>
         <button onclick="exportToExcel()">Export to Excel</button>
     </div>
@@ -89,9 +92,6 @@
         <h3>Enter Plate Number</h3>
         <input type="text" id="plateInput" list="plateList" placeholder="Type or select plate..." style="width: 100%; padding: 8px; margin: 10px 0; font-size: 16px;">
         <datalist id="plateList">
-            <option value="ABC-1234">
-            <option value="XYZ-5678">
-            <option value="TRK-9999">
         </datalist>
         <div style="margin-top: 10px;">
             <button onclick="savePlate()">Save</button>
@@ -100,8 +100,24 @@
     </div>
 </div>
 
+<!-- Modal for Master List Management -->
+<div id="masterModal" class="modal">
+    <div class="modal-content" style="width: 400px;">
+        <h3>Manage Truck Plates</h3>
+        <div style="display: flex; gap: 5px; margin-bottom: 15px;">
+            <input type="text" id="newPlateInput" placeholder="New Plate Number" style="text-transform: uppercase;">
+            <button onclick="addMasterPlate()" style="padding: 10px;">Add</button>
+        </div>
+        <ul id="masterList" style="list-style: none; padding: 0; max-height: 300px; overflow-y: auto; text-align: left;">
+            <!-- List items will be injected here -->
+        </ul>
+        <button onclick="closeMasterModal()" style="background-color: #6c757d; margin-top: 10px;">Close</button>
+    </div>
+</div>
+
 <script>
     let scannedData = JSON.parse(localStorage.getItem('scannedTransactions')) || [];
+    let masterPlates = JSON.parse(localStorage.getItem('masterPlates')) || [];
     let searchTerm = "";
     let selectedTransactions = new Set();
     let currentPage = 1;
@@ -374,6 +390,71 @@
         editIndex = null;
     }
 
+    function openMasterModal() {
+        document.getElementById('masterModal').style.display = 'block';
+        renderMasterList();
+        document.getElementById('newPlateInput').focus();
+    }
+
+    function closeMasterModal() {
+        document.getElementById('masterModal').style.display = 'none';
+    }
+
+    function renderMasterList() {
+        const list = document.getElementById('masterList');
+        list.innerHTML = '';
+        masterPlates.forEach((plate, index) => {
+            const li = document.createElement('li');
+            li.style.cssText = "display: flex; justify-content: space-between; padding: 8px; border-bottom: 1px solid #eee; align-items: center;";
+            
+            const span = document.createElement('span');
+            span.textContent = plate;
+            
+            const btn = document.createElement('button');
+            btn.textContent = '×';
+            btn.style.cssText = "background: #dc3545; color: white; border: none; padding: 0 6px; cursor: pointer; font-size: 16px; line-height: 20px; border-radius: 4px;";
+            btn.onclick = () => deleteMasterPlate(index);
+            
+            li.appendChild(span);
+            li.appendChild(btn);
+            list.appendChild(li);
+        });
+    }
+
+    function addMasterPlate() {
+        const input = document.getElementById('newPlateInput');
+        const val = input.value.trim().toUpperCase();
+        if(val && !masterPlates.includes(val)) {
+            masterPlates.push(val);
+            masterPlates.sort();
+            localStorage.setItem('masterPlates', JSON.stringify(masterPlates));
+            updatePlateDatalist();
+            renderMasterList();
+            input.value = '';
+        } else if (masterPlates.includes(val)) {
+            alert('Plate already exists');
+        }
+    }
+
+    function deleteMasterPlate(index) {
+        if(confirm('Remove this plate from master list?')) {
+            masterPlates.splice(index, 1);
+            localStorage.setItem('masterPlates', JSON.stringify(masterPlates));
+            updatePlateDatalist();
+            renderMasterList();
+        }
+    }
+
+    function updatePlateDatalist() {
+        const dataList = document.getElementById('plateList');
+        dataList.innerHTML = '';
+        masterPlates.forEach(plate => {
+            const option = document.createElement('option');
+            option.value = plate;
+            dataList.appendChild(option);
+        });
+    }
+
     function savePlate() {
         const selectedValue = document.getElementById('plateInput').value.trim() || "N/A";
         
@@ -392,6 +473,7 @@
     }
 
     // Initialize
+    updatePlateDatalist();
     updateSummary();
     renderTable();
 </script>
