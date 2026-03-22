@@ -168,7 +168,7 @@
     let filterStatus = "all";
     let selectedTransactions = new Set();
     let currentPage = 1;
-    let currentPlate = "N/A";
+    let currentPlate = localStorage.getItem('currentPlate') || "N/A";
     let focusedTransactionId = null;
     let editIndex = null;
     const rowsPerPage = 10;
@@ -359,6 +359,7 @@
                 loadBtn.className = 'icon-btn';
                 loadBtn.onclick = function() {
                     item["Loaded Time"] = new Date().toLocaleString();
+                    if (currentPlate !== "N/A") item["Plate Number"] = currentPlate;
                     saveData();
                     renderTable();
                 };
@@ -442,6 +443,7 @@
         scannedData.forEach(item => {
             if (selectedTransactions.has(item["Transaction Number"]) && !item["Loaded Time"]) {
                 item["Loaded Time"] = now;
+                if (currentPlate !== "N/A") item["Plate Number"] = currentPlate;
                 updatedCount++;
             }
         });
@@ -668,6 +670,7 @@
         } else {
             // Set global default
             currentPlate = selectedValue;
+            localStorage.setItem('currentPlate', currentPlate);
             document.getElementById('truckDisplay').textContent = "Current Truck: " + currentPlate;
             document.getElementById('scanInput').focus();
         }
@@ -712,6 +715,7 @@
 
     // Initialize
     updatePlateDatalist();
+    document.getElementById('truckDisplay').textContent = "Current Truck: " + currentPlate;
     updateSummary(scannedData); // Initial summary for all data
     document.getElementById('cardTotal').classList.add('active-filter');
     renderTable();
