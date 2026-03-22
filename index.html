@@ -27,15 +27,15 @@
         .card { background: white; padding: 15px; border-radius: 8px; box-shadow: 0 2px 4px rgba(0,0,0,0.1); text-align: center; border: 1px solid #ddd; }
         .card h3 { margin: 0 0 10px 0; color: #555; font-size: 14px; text-transform: uppercase; }
         .card p { margin: 0; font-size: 24px; font-weight: bold; color: #007bff; }
-        .icon-btn { padding: 6px 10px; font-size: 16px; border: 1px solid transparent; cursor: pointer; margin-right: 4px; border-radius: 4px; background: transparent; color: #333; }
-        .icon-btn:hover { background-color: #eee; border-color: #ddd; }
+        .icon-btn { padding: 8px 12px; font-size: 20px; border: 1px solid transparent; cursor: pointer; margin-right: 4px; border-radius: 8px; background: transparent; color: #333; transition: all 0.2s ease; }
+        .icon-btn:hover { background-color: #e2e6ea; transform: scale(1.25); box-shadow: 0 2px 5px rgba(0,0,0,0.1); }
         .bulk-btn { display: none; margin-left: 5px; }
-        #toast-container { position: fixed; top: 20px; right: 20px; z-index: 2000; display: flex; flex-direction: column; gap: 10px; }
-        .toast { padding: 12px 20px; border-radius: 4px; color: white; min-width: 250px; box-shadow: 0 4px 6px rgba(0,0,0,0.1); animation: slideIn 0.3s ease-out; opacity: 1; transition: opacity 0.3s; }
+        #toast-container { position: fixed; top: 30px; left: 50%; transform: translateX(-50%); z-index: 2000; display: flex; flex-direction: column; gap: 15px; align-items: center; }
+        .toast { padding: 20px 50px; font-size: 22px; font-weight: 500; border-radius: 50px; color: white; min-width: 300px; text-align: center; box-shadow: 0 8px 20px rgba(0,0,0,0.25); animation: slideDown 0.4s cubic-bezier(0.175, 0.885, 0.32, 1.275); opacity: 1; transition: opacity 0.3s; }
         .toast.error { background-color: #dc3545; }
         .toast.success { background-color: #28a745; }
         .toast.info { background-color: #333; }
-        @keyframes slideIn { from { transform: translateX(100%); opacity: 0; } to { transform: translateX(0); opacity: 1; } }
+        @keyframes slideDown { from { transform: translateY(-100%); opacity: 0; } to { transform: translateY(0); opacity: 1; } }
     </style>
 </head>
 <body>
