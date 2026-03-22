@@ -23,6 +23,13 @@
         .modal { display: none; position: fixed; z-index: 1000; left: 0; top: 0; width: 100%; height: 100%; background-color: rgba(0,0,0,0.5); }
         .modal-content { background-color: white; margin: 15% auto; padding: 20px; border-radius: 5px; width: 300px; text-align: center; }
         .modal-content select { width: 100%; padding: 8px; margin: 10px 0; font-size: 16px; }
+        .summary-cards { display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 20px; margin-bottom: 20px; }
+        .card { background: white; padding: 15px; border-radius: 8px; box-shadow: 0 2px 4px rgba(0,0,0,0.1); text-align: center; border: 1px solid #ddd; }
+        .card h3 { margin: 0 0 10px 0; color: #555; font-size: 14px; text-transform: uppercase; }
+        .card p { margin: 0; font-size: 24px; font-weight: bold; color: #007bff; }
+        .edit-btn { background-color: #ffc107; color: #000; margin-right: 5px; padding: 5px 10px; font-size: 14px; border: none; cursor: pointer; }
+        .edit-btn:hover { background-color: #e0a800; }
+        .bulk-btn { background-color: #dc3545; display: none; margin-left: auto; }
     </style>
 </head>
 <body>
@@ -30,10 +37,26 @@
 <div class="container">
     <h2>Scan Transaction</h2>
     
+    <div class="summary-cards">
+        <div class="card">
+            <h3>Total Scans</h3>
+            <p id="totalScans">0</p>
+        </div>
+        <div class="card">
+            <h3>Unique Trucks</h3>
+            <p id="uniqueTrucks">0</p>
+        </div>
+        <div class="card">
+            <h3>Latest Scan</h3>
+            <p id="latestScan">-</p>
+        </div>
+    </div>
+
     <div class="input-group">
         <input type="text" id="scanInput" placeholder="Scan transaction number here..." autofocus>
         <input type="text" id="searchInput" placeholder="Search transactions..." onkeyup="handleSearch(this.value)">
         <button onclick="openModal()" style="background-color: #007bff;">Select Truck</button>
+        <button id="bulkDeleteBtn" class="bulk-btn" onclick="executeBulkDelete()">Delete Selected</button>
         <button onclick="exportToExcel()">Export to Excel</button>
     </div>
     <div style="margin-bottom: 10px; font-weight: bold; color: #555;" id="truckDisplay">Current Truck: N/A</div>
@@ -41,6 +64,7 @@
     <table id="scanTable">
         <thead>
             <tr>
+                <th><input type="checkbox" id="selectAll" onclick="toggleSelectAll(this)"></th>
                 <th>Transaction Number</th>
                 <th>Timestamp</th>
                 <th>Plate Number</th>
@@ -77,10 +101,12 @@
 </div>
 
 <script>
-    const scannedData = [];
+    let scannedData = JSON.parse(localStorage.getItem('scannedTransactions')) || [];
     let searchTerm = "";
+    let selectedTransactions = new Set();
     let currentPage = 1;
     let currentPlate = "N/A";
+    let editIndex = null;
     const rowsPerPage = 10;
     const input = document.getElementById('scanInput');
     const tbody = document.querySelector('#scanTable tbody');
@@ -124,7 +150,7 @@
 
         // Add to data array for export
         scannedData.unshift(dataItem);
-        
+        saveData();
         currentPage = 1;
         renderTable();
     }
@@ -144,15 +170,37 @@
         const end = start + rowsPerPage;
         const pageItems = filteredData.slice(start, end);
 
+        // Update Select All checkbox based on visible items
+        const allVisibleSelected = pageItems.length > 0 && pageItems.every(item => selectedTransactions.has(item["Transaction Number"]));
+        const selectAllCheckbox = document.getElementById('selectAll');
+        selectAllCheckbox.checked = allVisibleSelected;
+        selectAllCheckbox.indeterminate = !allVisibleSelected && pageItems.some(item => selectedTransactions.has(item["Transaction Number"]));
+
         pageItems.forEach(item => {
             const row = tbody.insertRow();
-            const cell1 = row.insertCell(0);
-            const cell2 = row.insertCell(1);
-            const cell3 = row.insertCell(2);
-            const cell4 = row.insertCell(3);
+            
+            const cellCheck = row.insertCell(0);
+            const cell1 = row.insertCell(1);
+            const cell2 = row.insertCell(2);
+            const cell3 = row.insertCell(3);
+            const cell4 = row.insertCell(4);
+
+            const checkbox = document.createElement('input');
+            checkbox.type = 'checkbox';
+            checkbox.checked = selectedTransactions.has(item["Transaction Number"]);
+            checkbox.onchange = (e) => toggleSelection(item["Transaction Number"], e.target.checked);
+            cellCheck.appendChild(checkbox);
+
             cell1.textContent = item["Transaction Number"];
             cell2.textContent = item["Timestamp"];
             cell3.textContent = item["Plate Number"];
+
+            const editBtn = document.createElement('button');
+            editBtn.textContent = 'Edit';
+            editBtn.className = 'edit-btn';
+            editBtn.onclick = function() {
+                openModal(scannedData.indexOf(item));
+            };
 
             const deleteBtn = document.createElement('button');
             deleteBtn.textContent = 'Delete';
@@ -160,15 +208,81 @@
             deleteBtn.onclick = function() {
                 const index = scannedData.indexOf(item);
                 if (index > -1) scannedData.splice(index, 1);
+                selectedTransactions.delete(item["Transaction Number"]); // Remove from selection if deleted individually
                 // Check if current page is empty after deletion
                 const currentFiltered = scannedData.filter(i => i["Transaction Number"].toLowerCase().includes(searchTerm));
                 const totalPages = Math.ceil(currentFiltered.length / rowsPerPage) || 1;
                 if (currentPage > totalPages) currentPage = totalPages;
                 renderTable();
+                saveData();
             };
+            cell4.appendChild(editBtn);
             cell4.appendChild(deleteBtn);
         });
+        updateBulkButton();
         updatePagination(filteredData.length);
+        updateSummary();
+    }
+
+    function toggleSelection(id, isChecked) {
+        if (isChecked) selectedTransactions.add(id);
+        else selectedTransactions.delete(id);
+        renderTable(); // Re-render to update header checkbox state
+    }
+
+    function toggleSelectAll(source) {
+        const filteredData = scannedData.filter(item => 
+            item["Transaction Number"].toLowerCase().includes(searchTerm)
+        );
+        const start = (currentPage - 1) * rowsPerPage;
+        const end = start + rowsPerPage;
+        const pageItems = filteredData.slice(start, end);
+
+        pageItems.forEach(item => {
+            if (source.checked) selectedTransactions.add(item["Transaction Number"]);
+            else selectedTransactions.delete(item["Transaction Number"]);
+        });
+        renderTable();
+    }
+
+    function executeBulkDelete() {
+        if (selectedTransactions.size === 0) return;
+        if (!confirm(`Are you sure you want to delete ${selectedTransactions.size} items?`)) return;
+
+        scannedData = scannedData.filter(item => !selectedTransactions.has(item["Transaction Number"]));
+        selectedTransactions.clear();
+        saveData();
+        renderTable();
+    }
+
+    function saveData() {
+        localStorage.setItem('scannedTransactions', JSON.stringify(scannedData));
+        updateSummary();
+    }
+
+    function updateBulkButton() {
+        const btn = document.getElementById('bulkDeleteBtn');
+        if (selectedTransactions.size > 0) {
+            btn.style.display = 'inline-block';
+            btn.textContent = `Delete Selected (${selectedTransactions.size})`;
+        } else {
+            btn.style.display = 'none';
+        }
+    }
+
+    function updateSummary() {
+        document.getElementById('totalScans').textContent = scannedData.length;
+        
+        const uniquePlates = new Set(scannedData.map(i => i["Plate Number"]).filter(p => p !== "N/A"));
+        document.getElementById('uniqueTrucks').textContent = uniquePlates.size;
+
+        if (scannedData.length > 0) {
+            // Show time of the most recent item (index 0)
+            const latest = scannedData[0]["Timestamp"].split(',')[1] || scannedData[0]["Timestamp"];
+            document.getElementById('latestScan').textContent = latest;
+        } else {
+            document.getElementById('latestScan').textContent = "-";
+        }
     }
 
     function updatePagination(totalItems) {
@@ -240,20 +354,46 @@
         oscillator.stop(audioCtx.currentTime + 0.3);
     }
 
-    function openModal() {
+    function openModal(index = null) {
+        editIndex = index;
         document.getElementById('plateModal').style.display = 'block';
+        const select = document.getElementById('plateSelect');
+        const title = document.querySelector('#plateModal h3');
+
+        if (editIndex !== null) {
+            title.textContent = "Edit Plate for " + scannedData[editIndex]["Transaction Number"];
+            select.value = scannedData[editIndex]["Plate Number"] || "";
+        } else {
+            title.textContent = "Select Default Plate";
+            select.value = currentPlate === "N/A" ? "" : currentPlate;
+        }
     }
 
     function closeModal() {
         document.getElementById('plateModal').style.display = 'none';
+        editIndex = null;
     }
 
     function savePlate() {
-        currentPlate = document.getElementById('plateSelect').value || "N/A";
-        document.getElementById('truckDisplay').textContent = "Current Truck: " + currentPlate;
+        const selectedValue = document.getElementById('plateSelect').value || "N/A";
+        
+        if (editIndex !== null) {
+            // Update specific row
+            scannedData[editIndex]["Plate Number"] = selectedValue;
+            saveData();
+            renderTable();
+        } else {
+            // Set global default
+            currentPlate = selectedValue;
+            document.getElementById('truckDisplay').textContent = "Current Truck: " + currentPlate;
+            document.getElementById('scanInput').focus();
+        }
         closeModal();
-        document.getElementById('scanInput').focus();
     }
+
+    // Initialize
+    updateSummary();
+    renderTable();
 </script>
 
 </body>
