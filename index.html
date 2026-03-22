@@ -37,7 +37,7 @@
 <body>
 
 <div class="container">
-    <h2>Scan Transaction</h2>
+    <h2>Scan IST</h2>
     
     <div class="summary-cards">
         <div class="card">
@@ -71,6 +71,7 @@
                 <th>Transaction Number</th>
                 <th>Timestamp</th>
                 <th>Plate Number</th>
+                <th>Loaded Time</th>
                 <th>Action</th>
             </tr>
         </thead>
@@ -162,7 +163,7 @@
         const now = new Date();
         const timestamp = now.toLocaleString();
 
-        const dataItem = { "Transaction Number": number, "Timestamp": timestamp, "Plate Number": currentPlate };
+        const dataItem = { "Transaction Number": number, "Timestamp": timestamp, "Plate Number": currentPlate, "Loaded Time": timestamp };
 
         // Add to data array for export
         scannedData.unshift(dataItem);
@@ -200,6 +201,7 @@
             const cell2 = row.insertCell(2);
             const cell3 = row.insertCell(3);
             const cell4 = row.insertCell(4);
+            const cell5 = row.insertCell(5);
 
             const checkbox = document.createElement('input');
             checkbox.type = 'checkbox';
@@ -210,6 +212,7 @@
             cell1.textContent = item["Transaction Number"];
             cell2.textContent = item["Timestamp"];
             cell3.textContent = item["Plate Number"];
+            cell4.textContent = item["Loaded Time"] || item["Timestamp"]; // Show loaded time, or fallback to timestamp for old records
 
             const editBtn = document.createElement('button');
             editBtn.textContent = 'Edit';
@@ -232,8 +235,8 @@
                 renderTable();
                 saveData();
             };
-            cell4.appendChild(editBtn);
-            cell4.appendChild(deleteBtn);
+            cell5.appendChild(editBtn);
+            cell5.appendChild(deleteBtn);
         });
         updateBulkButton();
         updatePagination(filteredData.length);
