@@ -86,13 +86,13 @@
 <!-- Modal for Truck Selection -->
 <div id="plateModal" class="modal">
     <div class="modal-content">
-        <h3>Select Plate Number</h3>
-        <select id="plateSelect">
-            <option value="">-- Select Plate --</option>
-            <option value="ABC-1234">ABC-1234</option>
-            <option value="XYZ-5678">XYZ-5678</option>
-            <option value="TRK-9999">TRK-9999</option>
-        </select>
+        <h3>Enter Plate Number</h3>
+        <input type="text" id="plateInput" list="plateList" placeholder="Type or select plate..." style="width: 100%; padding: 8px; margin: 10px 0; font-size: 16px;">
+        <datalist id="plateList">
+            <option value="ABC-1234">
+            <option value="XYZ-5678">
+            <option value="TRK-9999">
+        </datalist>
         <div style="margin-top: 10px;">
             <button onclick="savePlate()">Save</button>
             <button onclick="closeModal()" style="background-color: #6c757d;">Cancel</button>
@@ -357,15 +357,15 @@
     function openModal(index = null) {
         editIndex = index;
         document.getElementById('plateModal').style.display = 'block';
-        const select = document.getElementById('plateSelect');
+        const input = document.getElementById('plateInput');
         const title = document.querySelector('#plateModal h3');
 
         if (editIndex !== null) {
             title.textContent = "Edit Plate for " + scannedData[editIndex]["Transaction Number"];
-            select.value = scannedData[editIndex]["Plate Number"] || "";
+            input.value = scannedData[editIndex]["Plate Number"] || "";
         } else {
-            title.textContent = "Select Default Plate";
-            select.value = currentPlate === "N/A" ? "" : currentPlate;
+            title.textContent = "Enter Default Plate";
+            input.value = currentPlate === "N/A" ? "" : currentPlate;
         }
     }
 
@@ -375,7 +375,7 @@
     }
 
     function savePlate() {
-        const selectedValue = document.getElementById('plateSelect').value || "N/A";
+        const selectedValue = document.getElementById('plateInput').value.trim() || "N/A";
         
         if (editIndex !== null) {
             // Update specific row
