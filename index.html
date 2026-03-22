@@ -58,6 +58,18 @@
             <h3>Latest Scan</h3>
             <p id="latestScan">-</p>
         </div>
+        <div class="card">
+            <h3>Loaded</h3>
+            <p id="loadedCount" style="color: #28a745;">0</p>
+        </div>
+        <div class="card">
+            <h3>Unloaded</h3>
+            <p id="unloadedCount" style="color: #dc3545;">0</p>
+        </div>
+        <div class="card">
+            <h3>Progress</h3>
+            <p id="loadProgress">0%</p>
+        </div>
     </div>
 
     <div class="input-group">
@@ -395,12 +407,21 @@
     }
 
     function updateSummary() {
-        document.getElementById('totalScans').textContent = scannedData.length;
+        const total = scannedData.length;
+        document.getElementById('totalScans').textContent = total;
         
         const uniquePlates = new Set(scannedData.map(i => i["Plate Number"]).filter(p => p !== "N/A"));
         document.getElementById('uniqueTrucks').textContent = uniquePlates.size;
 
-        if (scannedData.length > 0) {
+        const loaded = scannedData.filter(i => i["Loaded Time"]).length;
+        const unloaded = total - loaded;
+        const percent = total > 0 ? Math.round((loaded / total) * 100) : 0;
+
+        document.getElementById('loadedCount').textContent = loaded;
+        document.getElementById('unloadedCount').textContent = unloaded;
+        document.getElementById('loadProgress').textContent = percent + "%";
+
+        if (total > 0) {
             // Show time of the most recent item (index 0)
             const latest = scannedData[0]["Timestamp"].split(',')[1] || scannedData[0]["Timestamp"];
             document.getElementById('latestScan').textContent = latest;
