@@ -5,6 +5,8 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Transaction Scanner</title>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf-autotable/3.5.29/jspdf.plugin.autotable.min.js"></script>
     <style>
         body { font-family: sans-serif; padding: 20px; }
         .container { max-width: 100%; margin: 0 auto; }
@@ -90,6 +92,7 @@
         <button id="bulkLoadBtn" class="bulk-btn" style="margin-left: auto;" onclick="executeBulkLoad()">Load Selected</button>
         <button id="bulkDeleteBtn" class="bulk-btn" onclick="executeBulkDelete()">Delete Selected</button>
         <button onclick="exportToExcel()">Export to Excel</button>
+        <button onclick="printLoadedPDF()">Print Manifest (PDF)</button>
     </div>
     <div style="margin-bottom: 10px; font-weight: bold; color: #555;" id="truckDisplay">Current Truck: N/A</div>
 
@@ -551,6 +554,64 @@
 
         // Generate Excel file
         XLSX.writeFile(wb, "scanned_transactions.xlsx");
+    }
+
+    function printLoadedPDF() {
+        const { jsPDF } = window.jspdf;
+        const doc = new jsPDF();
+        
+        // Filter for loaded items within current view filters
+        const dataToPrint = getFilteredData().filter(item => item["Loaded Time"]);
+
+        if (dataToPrint.length === 0) {
+            showToast("No loaded transactions found to print!", "error");
+            return;
+        }
+
+        // Group data by Trucker/Plate
+        const groups = {};
+        dataToPrint.forEach(item => {
+            const plate = item["Plate Number"] || "N/A";
+            const trucker = item["Trucker Name"] || "N/A";
+            const key = `Truck: ${plate} - Driver: ${trucker}`;
+            if (!groups[key]) groups[key] = [];
+            groups[key].push([
+                item["Transaction Number"],
+                item["Timestamp"],
+                item["Loaded Time"]
+            ]);
+        });
+
+        let yPos = 15;
+        doc.setFontSize(16);
+        doc.text("Loaded Details Manifest", 14, yPos);
+        doc.setFontSize(10);
+        doc.text(`Generated: ${new Date().toLocaleString()}`, 195, yPos, { align: 'right' });
+        yPos += 15;
+
+        Object.keys(groups).forEach(key => {
+            if (yPos > 270) {
+                doc.addPage();
+                yPos = 20;
+            }
+            doc.setFontSize(12);
+            doc.setFont(undefined, 'bold');
+            doc.text(key, 14, yPos);
+            doc.setFont(undefined, 'normal');
+            yPos += 3;
+            
+            doc.autoTable({
+                startY: yPos,
+                head: [['Transaction', 'Scanned Time', 'Loaded Time']],
+                body: groups[key],
+                theme: 'striped',
+                headStyles: { fillColor: [60, 60, 60] },
+                margin: { left: 14, right: 14 }
+            });
+            yPos = doc.lastAutoTable.finalY + 10;
+        });
+
+        doc.save("Loaded_Manifest.pdf");
     }
 
     // Audio Context for sound effects
