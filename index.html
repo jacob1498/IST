@@ -121,6 +121,11 @@
         <button id="prevBtn" onclick="changePage(-1)" disabled>Previous</button>
         <span id="pageInfo">Page 1 of 1</span>
         <button id="nextBtn" onclick="changePage(1)" disabled>Next</button>
+        <select id="rowsPerPageSelect" onchange="changeRowsPerPage(this.value)" style="margin-left: 10px; padding: 5px; border-radius: 4px; border: 1px solid #ccc;">
+            <option value="10">10 rows</option>
+            <option value="50">50 rows</option>
+            <option value="100">100 rows</option>
+        </select>
     </div>
 </div>
 
@@ -187,7 +192,7 @@
     let currentLoadId = localStorage.getItem('currentLoadId') || "";
     let focusedTransactionId = null;
     let editIndex = null;
-    const rowsPerPage = 10;
+    let rowsPerPage = 10;
     const input = document.getElementById('scanInput');
     const tbody = document.querySelector('#scanTable tbody');
 
@@ -562,6 +567,12 @@
         renderTable();
     }
 
+    function changeRowsPerPage(val) {
+        rowsPerPage = parseInt(val);
+        currentPage = 1;
+        renderTable();
+    }
+
     function exportToExcel() {
         if (scannedData.length === 0) {
             showToast("No data to export!", "error");
@@ -611,14 +622,24 @@
         doc.text("Loaded Details Manifest", 14, yPos);
         doc.setFontSize(10);
         doc.text(`Generated: ${new Date().toLocaleString()}`, 195, yPos, { align: 'right' });
-        yPos += 10;
+        yPos += 5;
 
-        doc.text(`Total Items: ${dataToPrint.length}`, 14, yPos);
-        if (filterDateFrom || filterDateTo) {
-            yPos += 5;
-            doc.text(`Date Range: ${filterDateFrom || '...'} to ${filterDateTo || '...'}`, 14, yPos);
-        }
-        yPos += 15;
+        // Summary Box
+        const uniqueTrucks = new Set(dataToPrint.map(i => i["Plate Number"])).size;
+        const uniqueLoads = new Set(dataToPrint.map(i => i["Load ID"]).filter(l => l)).size;
+
+        doc.setDrawColor(200);
+        doc.setFillColor(250, 250, 250);
+        doc.rect(14, yPos, 182, 20, 'FD');
+        
+        doc.setFontSize(9);
+        doc.text(`Total Transactions: ${dataToPrint.length}`, 18, yPos + 7);
+        doc.text(`Unique Trucks: ${uniqueTrucks}`, 18, yPos + 14);
+        doc.text(`Date Range: ${filterDateFrom || 'Start'} to ${filterDateTo || 'Present'}`, 80, yPos + 7);
+        doc.text(`Unique Loads: ${uniqueLoads}`, 80, yPos + 14);
+        if (filterLoadId) doc.text(`Filtered by Load ID: ${filterLoadId}`, 140, yPos + 7);
+        
+        yPos += 25;
 
         Object.keys(groups).forEach(key => {
             if (yPos > 270) {
