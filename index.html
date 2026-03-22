@@ -201,6 +201,14 @@
     function processScan() {
         const value = input.value.trim();
         if (value) {
+            // Validation: Must be exactly 10 digits
+            if (!/^\d{10}$/.test(value)) {
+                playErrorSound();
+                showToast("Invalid Input: Must be 10 digits", "error");
+                input.value = '';
+                input.focus();
+                return;
+            }
             if (scannedData.some(item => item["Transaction Number"] === value)) {
                 playErrorSound();
                 showToast("Duplicate transaction detected!", "error");
