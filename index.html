@@ -7,16 +7,18 @@
     <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
     <style>
         body { font-family: sans-serif; padding: 20px; }
-        .container { max-width: 800px; margin: 0 auto; }
+        .container { max-width: 100%; margin: 0 auto; }
+        .table-container { max-height: 60vh; overflow: auto; margin-top: 20px; border: 1px solid #ddd; }
         .input-group { margin-bottom: 20px; display: flex; gap: 10px; }
-        input { flex-grow: 1; padding: 10px; font-size: 16px; }
-        button { padding: 10px 20px; background-color: #28a745; color: white; border: none; cursor: pointer; font-size: 16px; }
-        button:hover { background-color: #218838; }
-        table { width: 100%; border-collapse: collapse; margin-top: 20px; }
-        th, td { border: 1px solid #ddd; padding: 10px; text-align: left; }
-        th { background-color: #f8f9fa; }
+        input { flex-grow: 1; padding: 10px; font-size: 16px; border: 1px solid #ccc; border-radius: 4px; }
+        button { padding: 10px 20px; background-color: #fff; color: #333; border: 1px solid #ccc; cursor: pointer; font-size: 16px; border-radius: 4px; }
+        button:hover { background-color: #f0f0f0; border-color: #bbb; }
+        table { width: 100%; border-collapse: collapse; }
+        th, td { border: 1px solid #ddd; padding: 10px; text-align: left; white-space: nowrap; }
+        th { background-color: #f8f9fa; position: sticky; top: 0; z-index: 2; }
+        tr:focus { outline: 2px solid #666; background-color: #f9f9f9; }
         .pagination { margin-top: 15px; display: flex; justify-content: center; gap: 15px; align-items: center; }
-        .pagination button { background-color: #007bff; padding: 5px 15px; }
+        .pagination button { padding: 5px 15px; }
         .pagination button:disabled { background-color: #cccccc; cursor: not-allowed; }
         .modal { display: none; position: fixed; z-index: 1000; left: 0; top: 0; width: 100%; height: 100%; background-color: rgba(0,0,0,0.5); }
         .modal-content { background-color: white; margin: 15% auto; padding: 20px; border-radius: 5px; width: 300px; text-align: center; }
@@ -25,15 +27,9 @@
         .card { background: white; padding: 15px; border-radius: 8px; box-shadow: 0 2px 4px rgba(0,0,0,0.1); text-align: center; border: 1px solid #ddd; }
         .card h3 { margin: 0 0 10px 0; color: #555; font-size: 14px; text-transform: uppercase; }
         .card p { margin: 0; font-size: 24px; font-weight: bold; color: #007bff; }
-        .icon-btn { padding: 6px 10px; font-size: 16px; border: none; cursor: pointer; margin-right: 4px; border-radius: 4px; color: white; }
-        .btn-load { background-color: #28a745; }
-        .btn-edit { background-color: #ffc107; color: black; }
-        .btn-time { background-color: #6f42c1; }
-        .btn-delete { background-color: #dc3545; }
-        .icon-btn:hover { opacity: 0.8; }
+        .icon-btn { padding: 6px 10px; font-size: 16px; border: 1px solid transparent; cursor: pointer; margin-right: 4px; border-radius: 4px; background: transparent; color: #333; }
+        .icon-btn:hover { background-color: #eee; border-color: #ddd; }
         .bulk-btn { display: none; margin-left: 5px; }
-        .manage-btn { background-color: #17a2b8; }
-        .manage-btn:hover { background-color: #138496; }
     </style>
 </head>
 <body>
@@ -59,14 +55,15 @@
     <div class="input-group">
         <input type="text" id="scanInput" placeholder="Scan transaction number here..." autofocus>
         <input type="text" id="searchInput" placeholder="Search transactions..." onkeyup="handleSearch(this.value)">
-        <button onclick="openModal()" style="background-color: #007bff;">Select Truck</button>
-        <button onclick="openMasterModal()" class="manage-btn">Manage Trucks</button>
-        <button id="bulkLoadBtn" class="bulk-btn" style="background-color: #28a745; margin-left: auto;" onclick="executeBulkLoad()">Load Selected</button>
-        <button id="bulkDeleteBtn" class="bulk-btn" style="background-color: #dc3545;" onclick="executeBulkDelete()">Delete Selected</button>
+        <button onclick="openModal()">Select Truck</button>
+        <button onclick="openMasterModal()">Manage Trucks</button>
+        <button id="bulkLoadBtn" class="bulk-btn" style="margin-left: auto;" onclick="executeBulkLoad()">Load Selected</button>
+        <button id="bulkDeleteBtn" class="bulk-btn" onclick="executeBulkDelete()">Delete Selected</button>
         <button onclick="exportToExcel()">Export to Excel</button>
     </div>
     <div style="margin-bottom: 10px; font-weight: bold; color: #555;" id="truckDisplay">Current Truck: N/A</div>
 
+    <div class="table-container">
     <table id="scanTable">
         <thead>
             <tr>
@@ -82,6 +79,7 @@
             <!-- Scanned items will appear here -->
         </tbody>
     </table>
+    </div>
 
     <div class="pagination">
         <button id="prevBtn" onclick="changePage(-1)" disabled>Previous</button>
@@ -138,6 +136,7 @@
     let selectedTransactions = new Set();
     let currentPage = 1;
     let currentPlate = "N/A";
+    let focusedTransactionId = null;
     let editIndex = null;
     const rowsPerPage = 10;
     const input = document.getElementById('scanInput');
@@ -210,6 +209,17 @@
 
         pageItems.forEach(item => {
             const row = tbody.insertRow();
+            row.tabIndex = 0; // Make row focusable
+            
+            // Restore focus if this row was focused before re-render
+            if (item["Transaction Number"] === focusedTransactionId) {
+                setTimeout(() => row.focus(), 0);
+            }
+
+            row.onfocus = () => { focusedTransactionId = item["Transaction Number"]; };
+            row.onkeydown = (e) => {
+                if (e.key === ' ') { e.preventDefault(); toggleSelection(item["Transaction Number"], !selectedTransactions.has(item["Transaction Number"])); }
+            };
             
             const cellCheck = row.insertCell(0);
             const cell1 = row.insertCell(1);
@@ -234,7 +244,7 @@
                 const loadBtn = document.createElement('button');
                 loadBtn.innerHTML = '🚚'; // Truck icon
                 loadBtn.title = 'Mark as Loaded';
-                loadBtn.className = 'icon-btn btn-load';
+                loadBtn.className = 'icon-btn';
                 loadBtn.onclick = function() {
                     item["Loaded Time"] = new Date().toLocaleString();
                     saveData();
@@ -246,7 +256,7 @@
             const editBtn = document.createElement('button');
             editBtn.innerHTML = '✏️';
             editBtn.title = 'Edit Plate';
-            editBtn.className = 'icon-btn btn-edit';
+            editBtn.className = 'icon-btn';
             editBtn.onclick = function() {
                 openModal(scannedData.indexOf(item));
             };
@@ -254,7 +264,7 @@
             const timeBtn = document.createElement('button');
             timeBtn.innerHTML = '🕒';
             timeBtn.title = 'Edit Time';
-            timeBtn.className = 'icon-btn btn-time';
+            timeBtn.className = 'icon-btn';
             timeBtn.onclick = function() {
                 openTimeModal(scannedData.indexOf(item));
             };
@@ -262,7 +272,7 @@
             const deleteBtn = document.createElement('button');
             deleteBtn.innerHTML = '🗑️';
             deleteBtn.title = 'Delete';
-            deleteBtn.className = 'icon-btn btn-delete';
+            deleteBtn.className = 'icon-btn';
             deleteBtn.onclick = function() {
                 const index = scannedData.indexOf(item);
                 if (index > -1) scannedData.splice(index, 1);
