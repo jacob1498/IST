@@ -36,12 +36,14 @@
         .toast.success { background-color: #28a745; }
         .toast.info { background-color: #333; }
         @keyframes slideDown { from { transform: translateY(-100%); opacity: 0; } to { transform: translateY(0); opacity: 1; } }
+        .progress-container { width: 100%; background-color: #e9ecef; border-radius: 4px; height: 10px; margin-top: 10px; overflow: hidden; }
+        .progress-bar { height: 100%; background-color: #28a745; width: 0%; transition: width 0.3s ease, background-color 0.3s ease; }
     </style>
 </head>
 <body>
 
 <div class="container">
-    <h2>Scan Transaction</h2>
+    <h2>Scan IST</h2>
     
     <div id="toast-container"></div>
 
@@ -69,12 +71,17 @@
         <div class="card">
             <h3>Progress</h3>
             <p id="loadProgress">0%</p>
+            <div class="progress-container">
+                <div id="progressBar" class="progress-bar"></div>
+            </div>
         </div>
     </div>
 
     <div class="input-group">
         <input type="text" id="scanInput" placeholder="Scan transaction number here..." autofocus>
         <input type="text" id="searchInput" placeholder="Search transactions..." onkeyup="handleSearch(this.value)">
+        <input type="date" id="dateInput" onchange="handleDateFilter(this.value)" style="flex-grow: 0; width: auto;">
+        <button onclick="clearDateFilter()" title="Clear Date Filter">Clear Date</button>
         <button onclick="openModal()">Select Truck</button>
         <button onclick="openMasterModal()">Manage Trucks</button>
         <button id="bulkLoadBtn" class="bulk-btn" style="margin-left: auto;" onclick="executeBulkLoad()">Load Selected</button>
@@ -153,6 +160,7 @@
     let scannedData = JSON.parse(localStorage.getItem('scannedTransactions')) || [];
     let masterPlates = JSON.parse(localStorage.getItem('masterPlates')) || [];
     let searchTerm = "";
+    let filterDate = "";
     let selectedTransactions = new Set();
     let currentPage = 1;
     let currentPlate = "N/A";
@@ -225,11 +233,30 @@
         renderTable();
     }
 
+    function handleDateFilter(val) {
+        filterDate = val;
+        currentPage = 1; 
+        renderTable();
+    }
+
+    function clearDateFilter() {
+        document.getElementById('dateInput').value = '';
+        filterDate = "";
+        currentPage = 1;
+        renderTable();
+    }
+
     function renderTable() {
         tbody.innerHTML = '';
-        const filteredData = scannedData.filter(item => 
-            item["Transaction Number"].toLowerCase().includes(searchTerm)
-        );
+        const filteredData = scannedData.filter(item => {
+            const matchesSearch = item["Transaction Number"].toLowerCase().includes(searchTerm);
+            let matchesDate = true;
+            if (filterDate) {
+                const d = new Date(item["Timestamp"]);
+                matchesDate = !isNaN(d) && d.getFullYear() + '-' + String(d.getMonth() + 1).padStart(2, '0') + '-' + String(d.getDate()).padStart(2, '0') === filterDate;
+            }
+            return matchesSearch && matchesDate;
+        });
         const start = (currentPage - 1) * rowsPerPage;
         const end = start + rowsPerPage;
         const pageItems = filteredData.slice(start, end);
@@ -333,8 +360,8 @@
             cell5.appendChild(deleteBtn);
         });
         updateBulkButton();
-        updatePagination(filteredData.length);
-        updateSummary();
+        updatePagination(filteredData.length); // This should use filtered length
+        updateSummary(filteredData); // Pass filtered data to summary
     }
 
     function toggleSelection(id, isChecked) {
@@ -406,24 +433,29 @@
         }
     }
 
-    function updateSummary() {
-        const total = scannedData.length;
+    function updateSummary(dataToSummarize) {
+        // If no data is passed, use all data (for initial load)
+        const sourceData = dataToSummarize || scannedData;
+        const total = sourceData.length;
         document.getElementById('totalScans').textContent = total;
         
-        const uniquePlates = new Set(scannedData.map(i => i["Plate Number"]).filter(p => p !== "N/A"));
+        const uniquePlates = new Set(sourceData.map(i => i["Plate Number"]).filter(p => p !== "N/A"));
         document.getElementById('uniqueTrucks').textContent = uniquePlates.size;
 
-        const loaded = scannedData.filter(i => i["Loaded Time"]).length;
+        const loaded = sourceData.filter(i => i["Loaded Time"]).length;
         const unloaded = total - loaded;
         const percent = total > 0 ? Math.round((loaded / total) * 100) : 0;
 
         document.getElementById('loadedCount').textContent = loaded;
         document.getElementById('unloadedCount').textContent = unloaded;
         document.getElementById('loadProgress').textContent = percent + "%";
+        const progressBar = document.getElementById('progressBar');
+        progressBar.style.width = percent + "%";
+        progressBar.style.backgroundColor = percent < 50 ? "#dc3545" : "#28a745";
 
         if (total > 0) {
-            // Show time of the most recent item (index 0)
-            const latest = scannedData[0]["Timestamp"].split(',')[1] || scannedData[0]["Timestamp"];
+            // Show time of the most recent item in the filtered set
+            const latest = sourceData[0]["Timestamp"].split(',')[1] || sourceData[0]["Timestamp"];
             document.getElementById('latestScan').textContent = latest;
         } else {
             document.getElementById('latestScan').textContent = "-";
@@ -641,7 +673,7 @@
 
     // Initialize
     updatePlateDatalist();
-    updateSummary();
+    updateSummary(scannedData); // Initial summary for all data
     renderTable();
 </script>
 
