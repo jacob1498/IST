@@ -15,8 +15,6 @@
         table { width: 100%; border-collapse: collapse; margin-top: 20px; }
         th, td { border: 1px solid #ddd; padding: 10px; text-align: left; }
         th { background-color: #f8f9fa; }
-        .delete-btn { background-color: #dc3545; padding: 5px 10px; font-size: 14px; }
-        .delete-btn:hover { background-color: #c82333; }
         .pagination { margin-top: 15px; display: flex; justify-content: center; gap: 15px; align-items: center; }
         .pagination button { background-color: #007bff; padding: 5px 15px; }
         .pagination button:disabled { background-color: #cccccc; cursor: not-allowed; }
@@ -27,9 +25,13 @@
         .card { background: white; padding: 15px; border-radius: 8px; box-shadow: 0 2px 4px rgba(0,0,0,0.1); text-align: center; border: 1px solid #ddd; }
         .card h3 { margin: 0 0 10px 0; color: #555; font-size: 14px; text-transform: uppercase; }
         .card p { margin: 0; font-size: 24px; font-weight: bold; color: #007bff; }
-        .edit-btn { background-color: #ffc107; color: #000; margin-right: 5px; padding: 5px 10px; font-size: 14px; border: none; cursor: pointer; }
-        .edit-btn:hover { background-color: #e0a800; }
-        .bulk-btn { background-color: #dc3545; display: none; margin-left: auto; }
+        .icon-btn { padding: 6px 10px; font-size: 16px; border: none; cursor: pointer; margin-right: 4px; border-radius: 4px; color: white; }
+        .btn-load { background-color: #28a745; }
+        .btn-edit { background-color: #ffc107; color: black; }
+        .btn-time { background-color: #6f42c1; }
+        .btn-delete { background-color: #dc3545; }
+        .icon-btn:hover { opacity: 0.8; }
+        .bulk-btn { display: none; margin-left: 5px; }
         .manage-btn { background-color: #17a2b8; }
         .manage-btn:hover { background-color: #138496; }
     </style>
@@ -37,7 +39,7 @@
 <body>
 
 <div class="container">
-    <h2>Scan IST</h2>
+    <h2>Scan Transaction</h2>
     
     <div class="summary-cards">
         <div class="card">
@@ -59,7 +61,8 @@
         <input type="text" id="searchInput" placeholder="Search transactions..." onkeyup="handleSearch(this.value)">
         <button onclick="openModal()" style="background-color: #007bff;">Select Truck</button>
         <button onclick="openMasterModal()" class="manage-btn">Manage Trucks</button>
-        <button id="bulkDeleteBtn" class="bulk-btn" onclick="executeBulkDelete()">Delete Selected</button>
+        <button id="bulkLoadBtn" class="bulk-btn" style="background-color: #28a745; margin-left: auto;" onclick="executeBulkLoad()">Load Selected</button>
+        <button id="bulkDeleteBtn" class="bulk-btn" style="background-color: #dc3545;" onclick="executeBulkDelete()">Delete Selected</button>
         <button onclick="exportToExcel()">Export to Excel</button>
     </div>
     <div style="margin-bottom: 10px; font-weight: bold; color: #555;" id="truckDisplay">Current Truck: N/A</div>
@@ -84,6 +87,18 @@
         <button id="prevBtn" onclick="changePage(-1)" disabled>Previous</button>
         <span id="pageInfo">Page 1 of 1</span>
         <button id="nextBtn" onclick="changePage(1)" disabled>Next</button>
+    </div>
+</div>
+
+<!-- Modal for Time Editing -->
+<div id="timeModal" class="modal">
+    <div class="modal-content">
+        <h3>Edit Loaded Time</h3>
+        <input type="text" id="timeInput" style="width: 100%; padding: 8px; margin: 10px 0; font-size: 16px;">
+        <div style="margin-top: 10px;">
+            <button onclick="saveTime()">Save</button>
+            <button onclick="closeTimeModal()" style="background-color: #6c757d;">Cancel</button>
+        </div>
     </div>
 </div>
 
@@ -163,7 +178,7 @@
         const now = new Date();
         const timestamp = now.toLocaleString();
 
-        const dataItem = { "Transaction Number": number, "Timestamp": timestamp, "Plate Number": currentPlate, "Loaded Time": timestamp };
+        const dataItem = { "Transaction Number": number, "Timestamp": timestamp, "Plate Number": currentPlate, "Loaded Time": "" };
 
         // Add to data array for export
         scannedData.unshift(dataItem);
@@ -212,18 +227,42 @@
             cell1.textContent = item["Transaction Number"];
             cell2.textContent = item["Timestamp"];
             cell3.textContent = item["Plate Number"];
-            cell4.textContent = item["Loaded Time"] || item["Timestamp"]; // Show loaded time, or fallback to timestamp for old records
+            cell4.textContent = item["Loaded Time"] || "-";
+
+            // Load Button (only if not loaded)
+            if (!item["Loaded Time"]) {
+                const loadBtn = document.createElement('button');
+                loadBtn.innerHTML = '🚚'; // Truck icon
+                loadBtn.title = 'Mark as Loaded';
+                loadBtn.className = 'icon-btn btn-load';
+                loadBtn.onclick = function() {
+                    item["Loaded Time"] = new Date().toLocaleString();
+                    saveData();
+                    renderTable();
+                };
+                cell5.appendChild(loadBtn);
+            }
 
             const editBtn = document.createElement('button');
-            editBtn.textContent = 'Edit';
-            editBtn.className = 'edit-btn';
+            editBtn.innerHTML = '✏️';
+            editBtn.title = 'Edit Plate';
+            editBtn.className = 'icon-btn btn-edit';
             editBtn.onclick = function() {
                 openModal(scannedData.indexOf(item));
             };
 
+            const timeBtn = document.createElement('button');
+            timeBtn.innerHTML = '🕒';
+            timeBtn.title = 'Edit Time';
+            timeBtn.className = 'icon-btn btn-time';
+            timeBtn.onclick = function() {
+                openTimeModal(scannedData.indexOf(item));
+            };
+
             const deleteBtn = document.createElement('button');
-            deleteBtn.textContent = 'Delete';
-            deleteBtn.className = 'delete-btn';
+            deleteBtn.innerHTML = '🗑️';
+            deleteBtn.title = 'Delete';
+            deleteBtn.className = 'icon-btn btn-delete';
             deleteBtn.onclick = function() {
                 const index = scannedData.indexOf(item);
                 if (index > -1) scannedData.splice(index, 1);
@@ -236,6 +275,7 @@
                 saveData();
             };
             cell5.appendChild(editBtn);
+            cell5.appendChild(timeBtn);
             cell5.appendChild(deleteBtn);
         });
         updateBulkButton();
@@ -274,18 +314,41 @@
         renderTable();
     }
 
+    function executeBulkLoad() {
+        if (selectedTransactions.size === 0) return;
+        const now = new Date().toLocaleString();
+        let updatedCount = 0;
+        
+        scannedData.forEach(item => {
+            if (selectedTransactions.has(item["Transaction Number"]) && !item["Loaded Time"]) {
+                item["Loaded Time"] = now;
+                updatedCount++;
+            }
+        });
+
+        if (updatedCount > 0) {
+            saveData();
+        }
+        selectedTransactions.clear();
+        renderTable();
+    }
+
     function saveData() {
         localStorage.setItem('scannedTransactions', JSON.stringify(scannedData));
         updateSummary();
     }
 
     function updateBulkButton() {
-        const btn = document.getElementById('bulkDeleteBtn');
+        const deleteBtn = document.getElementById('bulkDeleteBtn');
+        const loadBtn = document.getElementById('bulkLoadBtn');
         if (selectedTransactions.size > 0) {
-            btn.style.display = 'inline-block';
-            btn.textContent = `Delete Selected (${selectedTransactions.size})`;
+            deleteBtn.style.display = 'inline-block';
+            deleteBtn.textContent = `Delete Selected (${selectedTransactions.size})`;
+            loadBtn.style.display = 'inline-block';
+            loadBtn.textContent = `Load Selected (${selectedTransactions.size})`;
         } else {
-            btn.style.display = 'none';
+            deleteBtn.style.display = 'none';
+            loadBtn.style.display = 'none';
         }
     }
 
@@ -473,6 +536,30 @@
             document.getElementById('scanInput').focus();
         }
         closeModal();
+    }
+
+    function openTimeModal(index) {
+        editIndex = index;
+        document.getElementById('timeModal').style.display = 'block';
+        document.getElementById('timeInput').value = scannedData[index]["Loaded Time"] || scannedData[index]["Timestamp"];
+        document.getElementById('timeInput').focus();
+    }
+
+    function closeTimeModal() {
+        document.getElementById('timeModal').style.display = 'none';
+        editIndex = null;
+    }
+
+    function saveTime() {
+        if (editIndex !== null) {
+            const newVal = document.getElementById('timeInput').value.trim();
+            if (newVal) {
+                scannedData[editIndex]["Loaded Time"] = newVal;
+                saveData();
+                renderTable();
+            }
+        }
+        closeTimeModal();
     }
 
     // Initialize
