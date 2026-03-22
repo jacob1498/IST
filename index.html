@@ -454,13 +454,18 @@
         let updatedCount = 0;
         
         scannedData.forEach(item => {
-            if (selectedTransactions.has(item["Transaction Number"]) && !item["Loaded Time"]) {
-                item["Loaded Time"] = now;
+            if (selectedTransactions.has(item["Transaction Number"])) {
+                let changed = false;
+                // Apply current truck info if selected, even if already loaded (fixes N/A mistakes)
                 if (currentPlate !== "N/A") {
-                    item["Plate Number"] = currentPlate;
-                    item["Trucker Name"] = currentTruckerName;
+                    if (item["Plate Number"] !== currentPlate || item["Trucker Name"] !== currentTruckerName) {
+                        item["Plate Number"] = currentPlate;
+                        item["Trucker Name"] = currentTruckerName;
+                        changed = true;
+                    }
                 }
-                updatedCount++;
+                if (!item["Loaded Time"]) { item["Loaded Time"] = now; changed = true; }
+                if (changed) updatedCount++;
             }
         });
 
